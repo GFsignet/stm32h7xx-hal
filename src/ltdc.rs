@@ -94,10 +94,23 @@ impl Ltdc {
         self.ltdc.ier.modify(|_, w| w.rrie().set_bit());
     }
 
+    /// Enables the line interrupt (VSYNC)
+    pub fn listen_vsync(&mut self) {
+        // Trigger on the back porch line
+        let backporch: u16 = self.ltdc.bpcr.read().avbp().bits();
+        self.ltdc.lipcr.write(|w| w.lipos().bits(backporch - 1));
+        // Enable
+        self.ltdc.ier.modify(|_, w| w.lie().set_bit());
+    }
+
     /// Clear interrupt flags
     pub fn unpend() {
         // unsafe: clear write-one interrupt flag
-        unsafe { (*LTDC::ptr()).icr.write(|w| w.crrif().set_bit()) };
+        unsafe {
+            (*LTDC::ptr())
+                .icr
+                .write(|w| w.crrif().set_bit().clif().set_bit())
+        };
     }
 }
 
