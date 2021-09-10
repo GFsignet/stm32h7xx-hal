@@ -66,6 +66,17 @@ pub enum Event {
     Txe,
     /// Idle line state detected
     Idle,
+    /// Receiver Timeout
+    RxTimeout,
+}
+
+/// Interrupt event
+#[derive(Copy, Clone, PartialEq)]
+pub enum RxEvent {
+    /// New data has been received
+    NotEmpty,
+    /// Receiver timeout
+    Timeout,
 }
 
 pub mod config {
@@ -532,6 +543,9 @@ macro_rules! usart {
                         Event::Idle => {
                             self.usart.cr1.modify(|_, w| w.idleie().enabled())
                         },
+                        Event::RxTimeout => {
+                            self.usart.cr1.modify(|_, w| w.rtoie().enabled())
+                        }
                     }
                 }
 
@@ -547,6 +561,9 @@ macro_rules! usart {
                         Event::Idle => {
                             self.usart.cr1.modify(|_, w| w.idleie().disabled())
                         },
+                        Event::RxTimeout => {
+                            self.usart.cr1.modify(|_, w| w.rtoie().disabled())
+                        }
                     }
                     let _ = self.usart.cr1.read();
                     let _ = self.usart.cr1.read(); // Delay 2 peripheral clocks
@@ -670,19 +687,30 @@ macro_rules! usart {
             }
 
             impl Rx<$USARTX> {
-                /// Start listening for `Rxne` event
-                pub fn listen(&mut self) {
-                    // unsafe: rxneie bit accessed by Rx part only
-                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.rxneie().enabled());
+                /// Start listening for the given event
+                pub fn listen(&mut self, event: RxEvent) {
+                  match event {
+                    RxEvent::NotEmpty =>
+                    {// unsafe: rxneie bit accessed by Rx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.rxneie().enabled()); },
+                    RxEvent::Timeout =>
+                    {// unsafe: rtoie bit accessed by Rx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.rtoie().enabled()); },
+                  }
                 }
 
                 /// Stop listening for `Rxne` event
-                pub fn unlisten(&mut self) {
-                    // unsafe: rxneie bit accessed by Rx part only
-                    let cr1 = &unsafe { &*$USARTX::ptr() }.cr1;
-                    cr1.modify(|_, w| w.rxneie().disabled());
-                    let _ = cr1.read();
-                    let _ = cr1.read(); // Delay 2 peripheral clocks
+                pub fn unlisten(&mut self, event : RxEvent) {
+                  match event {
+                    RxEvent::NotEmpty =>
+                    {// unsafe: rxneie bit accessed by Rx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.rxneie().disabled()); },
+                    RxEvent::Timeout =>
+                    {// unsafe: rtoie bit accessed by Rx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.rtoie().disabled()); },
+                  }
+                    let _ = unsafe { &*$USARTX::ptr() }.cr1.read();
+                    let _ = unsafe { &*$USARTX::ptr() }.cr1.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Enables the Rx DMA stream.
