@@ -638,6 +638,7 @@ macro_rules! usart {
                 }
             }
 
+
             impl serial::Read<u8> for Rx<$USARTX> {
                 type Error = Error;
 
@@ -724,6 +725,22 @@ macro_rules! usart {
                 pub fn is_rxne(&self) -> bool {
                     unsafe { (*$USARTX::ptr()).isr.read().rxne().bit_is_set() }
                 }
+
+                pub fn is_receiver_timeout(&mut self, clear: bool) -> bool {
+                  let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
+                  let icr = unsafe { &(*$USARTX::ptr()).icr };
+
+                  if isr.rtof().bit_is_set() {
+                      if clear {
+                          icr.write(|w| w.rtocf().set_bit() );
+                      }
+                      true
+                  } else {
+                      false
+                  }
+              }
+
+
             }
 
             impl serial::Write<u8> for Serial<$USARTX> {
